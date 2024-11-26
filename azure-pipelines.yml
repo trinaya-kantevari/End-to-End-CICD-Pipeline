@@ -1,0 +1,94 @@
+trigger:
+ paths:
+    include:
+      - static
+
+pool:
+ name: my_agent_pool
+
+variables:
+  dockerRegistryServiceConnection: 'ACR_service_conn'
+  imageRepository: 'app'
+  containerRegistry: ''
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: Build
+  jobs:
+  - job: Build
+    displayName: Build
+    steps:
+    - task: GoTool@0
+      inputs:
+        version: '1.10'
+    - script: go build -o go-web-app
+      displayName: Build Go Web Application
+
+- stage: Test
+  displayName: Test
+  jobs:
+  - job: Test
+    displayName: Test
+    steps:
+    - task: GoTool@0
+      inputs:
+        version: '1.10'
+    - script: go test ./...
+      displayName: Run Go Tests
+      
+- stage: CodeAnalysis
+  displayName: Code Analysis
+  jobs:
+  - job: CodeAnalysis
+    displayName: Code Analysis
+    steps:
+    - task: SonarQubePrepare@7
+      displayName: Prepare Analysis Configuration
+      inputs:
+        SonarQube: 'sonar_conn'
+        scannerMode: 'cli'
+        configMode: 'manual'
+        cliProjectKey: 'my_project'
+        cliProjectName: 'CICD-sonar'
+        cliSources: '.'
+        extraProperties:
+          sonar.go.binaries=.
+
+    - task: SonarQubeAnalyze@7
+      displayName: Run Code Analysis
+      
+    - task: SonarQubePublish@7
+      displayName: Publish Sonar Results
+      inputs:
+        pollingTimeoutSec: '300'
+
+- stage: BuildImage
+  displayName: Build Image
+  jobs:
+  - job: BuildImage
+    displayName: Build Image
+    steps:
+    - task: Docker@2
+      displayName: Build Image
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)'
+        command: 'build'
+        Dockerfile: '$(dockerfilePath)'
+        tags: '$(tag)'
+        
+- stage: Push
+  displayName: Push
+  jobs:
+  - job: Push
+    displayName: Push
+    steps:
+    - task: Docker@2
+      displayName: Push
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)'
+        command: 'push'
+        tags: '$(tag)'
