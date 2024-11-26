@@ -12,6 +12,12 @@ variables:
   containerRegistry: ''
   dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
   tag: '$(Build.BuildId)'
+  storageaccount: 'agentsc'
+  resourcegroup: 'cicd_rg'
+  sacontainername: 'trivy-scan-reports'
+  serviceconn: 'newServiceConnection'
+  target: $(build.artifactstagingdirectory)
+  artifact: TRI
 
 stages:
 - stage: Build
